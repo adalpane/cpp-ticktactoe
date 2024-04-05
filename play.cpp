@@ -1,6 +1,7 @@
 #include "./match.cpp"
 #include "./strategy1.cpp"
 #include "./strategy2.cpp"
+#include <map>
 
 auto playMatch()
 {
@@ -45,37 +46,18 @@ public:
 
 class Counter : public ICounter<gameState>
 {
-    struct Pair
-    {
-        gameState key;
-        uint value;
-    };
 
-    std::vector<Pair> v;
+    std::map<gameState, int> m;
 
 public:
     int getCount(gameState key)
     {
-        for (int i = 0; i < v.size(); i++)
-        {
-            if (v[i].key == key)
-            {
-                return v[i].value;
-            }
-        }
+        return m[key];
     }
 
     void increase(gameState key)
     {
-        for (int i = 0; i < v.size(); i++)
-        {
-            if (v[i].key == key)
-            {
-                v[i].value++;
-                return;
-            }
-        }
-        v.push_back({key, 1});
+        m[key]++;
     }
 };
 
