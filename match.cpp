@@ -4,131 +4,133 @@
 #include <algorithm>
 #include <string>
 #include <utility>
-#include <gsl/gsl>
+#include <array>
 
-constexpr int gameSize = 3;
-constexpr int gameBoardSize = gameSize * gameSize;
+constexpr int BOARD_SIZE{3};
 
-enum cellState
-{
+
+enum class CellState {
     empty,
     player1,
-    player2
+    player2,
 };
 
-enum gameState
-{
-    notFinished,
+enum class Outcome {
+    player1Turn,
+    player2Turn,
     player1Won,
     player2Won,
-    draw
+    draw,
 };
-
-using Move = struct
-{
-    int x;
-    int y;
-    cellState gs;
-};
-
-using CellCoords = std::pair<int, int>;
 
 using Point = std::pair<int, int>;
 using Direction = std::pair<int, int>;
 
-using GameState = cellState[gameBoardSize];
+struct Move {
+    Point pos;
+    CellState player;
+};
 
-class Match
-{
-    GameState state;
 
-public:
-    GameState const &getState() const
-    {
-        return state;
+using GameState = CellState[BOARD_SIZE * BOARD_SIZE];
+
+
+class Match {
+private:
+    Outcome outcome;
+    GameState gameBoard;
+
+    const CellState &getCellState(const Point &pos) const {
+        return gameBoard[pos.first + pos.second * BOARD_SIZE];
     }
 
-    void makeMove(Move m)
-    {
-        Expects(m.gs != empty);
-        state[m.y * gameSize + m.x] = m.gs;
+    void setCellState(const Point &pos, const CellState &player) {
+        gameBoard[pos.first + pos.second * BOARD_SIZE] = player;
     }
 
-    bool isThereTrisAt(Point p, Direction d, cellState cs) const
-    {
-        for (uint i = 0; i < gameSize; ++i)
-        {
-            if (getCellContent(p.first + i * d.first, p.second + i * d.second) != cs)
-            {
+    bool isThereATris(const Point &p, const Direction &d,
+                      const CellState &cellState) {
+        for (int i{0}; i < BOARD_SIZE; ++i) {
+            const Point pos{p.first + i * d.first, p.second + i * d.second};
+            if (getCellState(pos) != cellState) {
                 return false;
             }
         }
         return true;
     }
 
-    gameState checkMatch() const
-    {
-        std::pair<Point, Direction> trises[] = {
-            {{0, 0}, {1, 0}},
-            {{0, 1}, {1, 0}},
-            {{0, 2}, {1, 0}},
-            {{0, 0}, {0, 1}},
-            {{1, 0}, {0, 1}},
-            {{2, 0}, {0, 1}},
-            {{0, 0}, {1, 1}},
-            {{2, 2}, {-1, -1}}
+    constexpr bool hasPlayerWon(const CellState &player) {
+        constexpr std::array<std::pair<Point, Direction>, 8> combos = {{
+               {{0, 0}, {1, 0}},
+               {{0, 1}, {1, 0}},
+               {{0, 2}, {1, 0}},
+               {{0, 0}, {0, 1}},
+               {{1, 0}, {0, 1}},
+               {{2, 0}, {0, 1}},
+               {{0, 0}, {1, 1}},
+               {{2, 2}, {-1, -1}},
+       }};
 
-        };
-        for (auto [p, d] : trises)
-        {
-            if (isThereTrisAt(p, d, player1))
-            {
-                return gameState::player1Won;
-            }
-            if (isThereTrisAt(p, d, player2))
-            {
-                return gameState::player2Won;
+        for (const auto &combo : combos) {
+            if (isThereATris(combo.first, combo.second, player)) {
+                return true;
             }
         }
-        if (std::any_of(std::begin(state), std::end(state), [](cellState s)
-                        { return s == empty; }))
-        {
-            return gameState::notFinished;
-        }
-        else
-        {
-            return gameState::draw;
+        return false;
+    }
+
+    bool isThereACellWithState(const CellState &state) const {
+        return std::any_of(std::begin(gameBoard), std::end(gameBoard),
+                           [&state](CellState c) { return c == state; });
+    }
+
+public:
+    Match() {
+        outcome = Outcome::player1Turn;
+        for (int i{0}; i < BOARD_SIZE * BOARD_SIZE; ++i) {
+            gameBoard[i] = CellState::empty;
         }
     }
 
-    cellState getCellContent(int x, int y) const
-    {
-        return state[x + y * gameSize];
-    }
+    void makeMove(const Move &m) { setCellState(m.pos, m.player); }
 
-    void setCellContent(int x, int y, cellState c)
-    {
-        state[x + y * gameSize] = c;
+    const GameState &getState() const { return gameBoard; }
+
+    Outcome getOutcome() { return outcome; }
+
+    Outcome checkOutcome() {
+        /*for (int i{0}; i < BOARD_SIZE * BOARD_SIZE; ++i) {
+          if (gameBoard[i] == CellState::empty) {
+            return outcome;
+          }
+        }*/
+
+        /*if (std::any_of(std::begin(gameBoard), std::end(gameBoard),
+                        [](CellState c) { return c == CellState::empty; })) {
+          return outcome;
+        }*/
+
+        if (hasPlayerWon(CellState::player1)) {
+            return Outcome::player1Won;
+        } else if (hasPlayerWon(CellState::player2)) {
+            return Outcome::player2Won;
+        } else if (!isThereACellWithState(CellState::empty)) {
+            return Outcome::draw;
+        } else {
+            return outcome;
+        }
     }
 
     operator std::string() const
     {
         std::string s{};
-        for (int i = 0; i < gameBoardSize; ++i)
+        for (int i = 0; i < BOARD_SIZE * BOARD_SIZE; ++i)
         {
-            s += std::to_string(getCellContent(i % gameSize, i / gameSize)) +
-                 (i % gameSize == 2 ? "\n" : " ");
+            const Point pos{i % BOARD_SIZE, i / BOARD_SIZE};
+            s += std::to_string((double) getCellState(pos)) +
+                 (i % BOARD_SIZE == 2 ? "\n" : " ");
         }
         return s;
-    }
-
-    // constructor with default values empty cells
-    Match()
-    {
-        for (int i = 0; i < gameBoardSize; ++i)
-        {
-            state[i] = empty;
-        }
     }
 
     // overload operator << for output streaming
