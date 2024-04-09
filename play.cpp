@@ -1,86 +1,36 @@
-#include "./match.cpp"
+#include "./match.h"
 #include "./strategy1.cpp"
 #include "./strategy2.cpp"
-#include <map>
 
-auto playMatch()
-{
-    Match m;
-    while (true)
-    {
-        m.makeMove(strategy1(m.getState()));
-        if (m.checkMatch() != notFinished)
-        {
-            return m.checkMatch();
+Outcome playGame() {
+    Match m{};
+
+    while (true) {
+        std::cout << m << '\n';
+        Move m1 = strategy1(m.getBoardState(), CellState::player1);
+        if (!m.makeMove(m1)) {
+            std::cout << "Player 1: Invalid move " << m1 << '\n';
+            return Outcome::player2Won;
         }
-        m.makeMove(strategy2(m.getState()));
-        if (m.checkMatch() != notFinished)
-        {
-            return m.checkMatch();
+        if (m.getOutcome() != Outcome::playerTurn) {
+            std::cout << m << '\n';
+            return m.getOutcome();
+        }
+
+        std::cout << m << '\n';
+        Move m2 = strategy2(m.getBoardState(), CellState::player2);
+        if (!m.makeMove(m2)) {
+            std::cout << "Player 2: Invalid move" << m2 << '\n';
+            return Outcome::player1Won;
+        }
+        if (m.getOutcome() != Outcome::playerTurn) {
+            std::cout << m << '\n';
+            return m.getOutcome();
+        }
+
+        if (m.getOutcome() == Outcome::draw) {
+            std::cout << m << '\n';
+            return Outcome::draw;
         }
     }
-}
-
-int count(std::vector<gameState> const &v, gameState gs)
-{
-    int count = 0;
-    for (int i = 0; i < v.size(); i++)
-    {
-        if (v[i] == gs)
-        {
-            count++;
-        }
-    }
-
-    return count;
-}
-
-template <typename KeyType>
-class ICounter
-{
-
-public:
-    virtual void increase(KeyType key) = 0;
-    virtual int getCount(KeyType key) = 0;
-};
-
-class Counter : public ICounter<gameState>
-{
-
-    std::map<gameState, int> m;
-
-public:
-    int getCount(gameState key)
-    {
-        return m[key];
-    }
-
-    void increase(gameState key)
-    {
-        m[key]++;
-    }
-};
-
-int main(int argc, char *argv[])
-{
-    std::cout << "Comincia la sfida" << std::endl;
-    Match m;
-
-    int n{10};
-    if (argc > 1)
-    {
-        n = std::atoi(argv[1]);
-    }
-
-    Counter counter;
-
-    for (int i = 0; i < n; i++)
-    {
-        // results[i] = playMatch();
-        counter.increase(playMatch());
-        // std::cout << "match " << i << ": " << results[i] << std::endl;
-    }
-
-    std::cout << "vinte da 1: " << counter.getCount(player1Won) << std::endl;
-    std::cout << "vinte da 2: " << counter.getCount(player2Won) << std::endl;
 }

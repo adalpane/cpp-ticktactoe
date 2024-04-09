@@ -1,21 +1,11 @@
+#include "./match.h"
 
-#include "./match.cpp"
-#include <random>
 
-Move strategy1(GameState const &m)
-{
-    // TODO: implement your strategy here
-    // put 1 on the first empty cell
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dis(0, gameBoardSize - 1);
-
-    while (true)
-    {
-        int i = dis(gen);
-        if (m[i] == empty)
-        {
-            return Move{i % gameSize, i / gameSize, player1};
+inline Move strategy1(const BoardState& state, CellState player) {
+    for (int i{2}; i < BOARD_SIZE * BOARD_SIZE; i = i+BOARD_SIZE) {
+        if (state[i] == CellState::empty) {
+            return {Point{i % BOARD_SIZE, i / BOARD_SIZE }, player};
         }
-    };
+    }
+    return {};
 }
