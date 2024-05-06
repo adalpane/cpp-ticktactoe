@@ -1,6 +1,7 @@
 #include "./match.h"
-#include "./strategy1.cpp"
-#include "./strategy2.cpp"
+#include "./strategy1.h"
+
+#include "./strategy2.h"
 
 Outcome playGame() {
     Match m{};
