@@ -6,47 +6,91 @@
 #include <string>
 #include <utility>
 #include <array>
+#include <variant>
+
+enum class Player
+{
+    PlayerOne,
+    PlayerTwo
+};
+
+inline std::ostream& operator<<(std::ostream& os, const Player& player) {
+    switch (player) {
+        case Player::PlayerOne:
+            return os << "1";
+        case Player::PlayerTwo:
+            return os << "2";
+    }
+    return os;
+}
+enum class Blank
+{
+};
+struct Ongoing
+{
+};
+struct Draw
+{
+};
+struct Won
+{
+    Player winner;
+};
+using Outcome = std::variant<Ongoing, Draw, Won>;
+template<>
+struct std::hash<Outcome>
+{
+    std::size_t operator()(const Outcome& o) const noexcept
+    {
+        if (std::holds_alternative<Draw>(o)) {
+            return 0;
+        } else if (std::holds_alternative<Won>(o)) {
+            switch (std::get<Won>(o).winner) {
+                case Player::PlayerOne :  return 1;
+                case Player::PlayerTwo :  return 2;
+            }
+        } else {
+            return -1;
+        }
+    }
+};
+
+using CellState = std::variant<Blank, Player>;
 
 constexpr int BOARD_SIZE{3};
-enum class Outcome { playerTurn, player1Won, player2Won, draw };
 
 inline std::ostream& operator<<(std::ostream& os, const Outcome& outcome) {
-    switch (outcome) {
-        case Outcome::playerTurn:
-            return os << "Player turn";
-        case Outcome::player1Won:
-            return os << "Player 1 Won";
-        case Outcome::player2Won:
-            return os << "Player 2 Won";
-        case Outcome::draw:
-            return os << "Draw";
+    if (std::holds_alternative<Ongoing>(outcome)) {
+        return os << "Player turn";
+    } else if (std::holds_alternative<Won>(outcome)) {
+        Won won = std::get<Won>(outcome);
+        return os << "Player " << won.winner << " Won";
+    } else if (std::holds_alternative<Draw>(outcome)) {
+        return os << "Draw";
     }
     return os;
 }
 
-enum class CellState {
-    empty,
-    player1,
-    player2,
-};
 using BoardState = std::array<CellState, BOARD_SIZE * BOARD_SIZE>;
 inline std::ostream& operator<<(std::ostream& os, const CellState& cellState) {
-    switch (cellState) {
-        case CellState::empty:
-            return os << " ";
-        case CellState::player1:
-            return os << "x";
-        case CellState::player2:
-            return os << "o";
+    if (std::holds_alternative<Player>(cellState)) {
+        switch (std::get<Player>(cellState)) {
+            case Player::PlayerOne:
+                return os << "x";
+            case Player::PlayerTwo:
+                return os << "o";
+        }
+    } else {
+        return os << " ";
     }
     return os;
 }
 
-using Point = std::pair<int, int>;
+using Coordinates = std::pair<int, int>;
 using Direction = std::pair<int, int>;
 
 struct PossibleTris {
-    Point point;
+    Coordinates coords;
     Direction direction;
 };
 constexpr std::array<PossibleTris, 8> possible_tris = {{
@@ -61,12 +105,12 @@ constexpr std::array<PossibleTris, 8> possible_tris = {{
 }};
 
 struct Move {
-    Point pos;
+    Coordinates coords;
     CellState player;
 };
 
 inline std::ostream& operator<<(std::ostream& os, const Move& move) {
-    return os << "(Position: " << move.pos.first << ", " << move.pos.second
+    return os << "(Coords: " << move.coords.first << ", " << move.coords.second
               << " - Player: " << move.player
               << ")";
 }

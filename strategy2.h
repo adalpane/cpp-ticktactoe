@@ -1,3 +1,3 @@
 #include "types.h"
 
-Move strategy2(const BoardState& state, CellState player);
+Move strategy2(const Match& match);

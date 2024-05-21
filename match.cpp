@@ -1,34 +1,42 @@
 #include <iostream>
 #include <string>
+#include <vector>
 #include "types.h"
 #include "match.h"
 
-bool Match::makeMove(const Move& move) {
-    if (state[move.pos.first + move.pos.second * BOARD_SIZE] !=
-        CellState::empty) {
-        return false;
+void Match::makeMove(const Move& move) {
+    int index = move.coords.first + move.coords.second * BOARD_SIZE;
+    if (std::holds_alternative<Player>(move.player) &&
+        next == std::get<Player>(move.player)
+        && std::holds_alternative<Blank>(board[index]))
+    {
+        board[index] = move.player;
+        next = next == Player::PlayerOne ? Player::PlayerTwo : Player::PlayerOne;
     }
-    if (move.player != CellState::player1 && move.player != CellState::player2) {
-        return false;
+    else
+    {
+        throw std::runtime_error("Invalid move");
     }
-    state[move.pos.first + move.pos.second * BOARD_SIZE] = move.player;
-    return true;
 }
 
-const BoardState& Match::getBoardState() const { return state; }
+const BoardState& Match::getBoardState() const { return board; }
 
 Outcome Match::getOutcome() {
-    if (hasPlayerWon(CellState::player1)) {
-        return Outcome::player1Won;
+    if (hasPlayerWon(Player::PlayerOne)) {
+        return Won {
+            .winner = Player::PlayerOne
+        };
     }
-    else if (hasPlayerWon(CellState::player2)) {
-        return Outcome::player2Won;
+    else if (hasPlayerWon(Player::PlayerTwo)) {
+        return Won {
+            .winner = Player::PlayerOne
+        };
     }
-    else if (!isThereACellWithState(CellState::empty)) {
-        return Outcome::draw;
+    else if (!isThereACellWithState(Blank {})) {
+        return Draw{};
     }
     else {
-        return Outcome::playerTurn;
+        return Ongoing{};
     }
 }
 
@@ -36,9 +44,29 @@ std::ostream& operator<<(std::ostream& os, const Match& match) {
     for (int i{0}; i < BOARD_SIZE; ++i) {
         os << "|";
         for (int j{0}; j < BOARD_SIZE; ++j) {
-            os << match.state[j + i * BOARD_SIZE] << "|";
+            os << match.board[j + i * BOARD_SIZE] << "|";
         }
         os << '\n';
     }
     return os;
+}
+
+Player Match::getNext() const {
+    return next;
+}
+
+std::vector<Move> Match::getAvailableMoves() const {
+    std::vector<Move> moves;
+    for (int i = 0; i < BOARD_SIZE; i++)
+    {
+        for (int j = 0; j < BOARD_SIZE; j++)
+        {
+            int index = i + j * BOARD_SIZE;
+            if (std::holds_alternative<Blank>(board[index]))
+            {
+                moves.push_back(Move{{i, j}, next});
+            }
+        }
+    }
+    return moves;
 }

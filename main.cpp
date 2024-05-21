@@ -1,6 +1,7 @@
 #include <iostream>
 #include <map>
 #include <sstream>
+#include <unordered_map>
 #include "./play.h"
 #include "match.h"
 
@@ -17,11 +18,12 @@ public:
 class Counter : public ICounter<Outcome>
 {
 
-    std::map<Outcome, int> m_map;
+    std::unordered_map<Outcome, int> m_map;
 
 public:
     int getCount(Outcome key) override
     {
+
         return m_map[key];
     }
 
@@ -34,8 +36,6 @@ public:
 int main(int argc, char *argv[])
 {
     std::cout << "Comincia la sfida" << std::endl;
-    Match m;
-
     int n{10};
     if (argc > 1)
     {
@@ -48,9 +48,11 @@ int main(int argc, char *argv[])
     for (int i = 0; i < n; i++)
     {
         std::cout << "Sfida " << i << ":\n";
-        counter.increase(playGame());
+        Outcome outcome = playGame();
+        std::cout << "Risultato Sfida " << i << ": " << outcome << "\n";
+        counter.increase(outcome);
     }
 
-    std::cout << "Vinte da 1: " << counter.getCount(Outcome::player1Won) << '\n';
-    std::cout << "Vinte da 2: " << counter.getCount(Outcome::player2Won) << std::endl;
+    std::cout << "Vinte da 1: " << counter.getCount(Won { .winner = Player::PlayerOne }) << '\n';
+    std::cout << "Vinte da 2: " << counter.getCount(Won { .winner = Player::PlayerTwo }) << std::endl;
 }

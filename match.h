@@ -7,16 +7,18 @@
 
 #include "types.h"
 #include <ranges>
+#include <vector>
 
 class Match {
 private:
-    BoardState state{};
+    Player next {};
+    BoardState board{};
 
     bool isThereATris(const PossibleTris& tris, const CellState& player) {
         for (int i{0}; i < BOARD_SIZE; ++i) {
-            const Point pos{tris.point.first + i * tris.direction.first,
-                            tris.point.second + i * tris.direction.second};
-            if (state[pos.first + pos.second * BOARD_SIZE] != player) {
+            const Coordinates pos{tris.coords.first + i * tris.direction.first,
+                            tris.coords.second + i * tris.direction.second};
+            if (board[pos.first + pos.second * BOARD_SIZE] != player) {
                 return false;
             }
         }
@@ -24,7 +26,7 @@ private:
     }
 
     bool isThereACellWithState(const CellState& cellState) {
-        return std::any_of(std::begin(state), std::end(state), [cellState](CellState cell) { return cell == cellState; });
+        return std::any_of(std::begin(board), std::end(board), [cellState](CellState cell) { return cell == cellState; });
     }
 
     bool hasPlayerWon(const CellState& player) {
@@ -34,17 +36,21 @@ private:
 public:
 
     Match() {
-        for (auto& cell : state) {
-            cell = CellState::empty;
+        for (auto& cell : board) {
+            cell = Blank{};
         }
     }
 
-    bool makeMove(const Move& move);
+    void makeMove(const Move& move);
 
     [[nodiscard]] const BoardState& getBoardState() const;
 
     Outcome getOutcome();
 
     friend std::ostream& operator<<(std::ostream& os, const Match& match);
+
+    [[nodiscard]] Player getNext() const;
+
+    [[nodiscard]] std::vector<Move> getAvailableMoves() const;
 };
 #endif //CPP_TICTACTOE_MATCH_H
