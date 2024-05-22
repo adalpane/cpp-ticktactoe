@@ -163,94 +163,89 @@ std::ostream &operator<<(std::ostream &os, const Board &board) {
 using Strategy = Move (*)(Board const&);
 
 Move strategy1(const Board &b) {
-    std::random_device rd;
+        std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dis(0, (BOARD_SIZE * BOARD_SIZE) - 1);
 
     auto moves = b.getAvailableMoves();
     return moves[dis(gen) % moves.size()];
-};
+
+}
 
 Move strategy2(const Board &b) {
-
     auto simulate = [](Board &board, std::function<Move(const Board&)> strategy1, std::function<Move(const Board&)> strategy2)
+{
+    while (std::holds_alternative<Ongoing>(board.getOutcome()))
     {
-        while (std::holds_alternative<Ongoing>(board.getOutcome()))
-        {
-            board.makeMove(board.getNextPlayer() == Player::PlayerOne ? strategy1(board) : strategy2(board));
-        }
-        return std::make_pair(board.getOutcome(), board.getTurn());
-    };
-
-    auto evaluator = [simulate](Board const &board, Move &move, std::function<Move(const Board&)> selfStrategy)
-    {
-        for (int i = 0; i < 100; i++)
-        {
-            Board tmpBoard = board;
-            tmpBoard.makeMove(move);
-            Player adversary = tmpBoard.getNextPlayer();
-            std::pair<Outcome, int> outcome = simulate(tmpBoard, selfStrategy, selfStrategy);
-            if (std::holds_alternative<Won>(outcome.first))
-            {
-                return (std::get<Won>(outcome.first).winner == adversary) ? -1 : outcome.second;
-            } else if (std::holds_alternative<Draw>(outcome.first))
-            {
-                return 10;
-            }
-        }
-        return -1;
-    };
-
-    std::function<Move(const Board&)> mc;
-
-    mc = [evaluator, &mc](const Board& board) {
-        auto moves = board.getAvailableMoves();
-
-        //  per ogni possibile mossa, valutare il risultato della simulazione
-        if (moves.size() == 1) {
-            return moves[0];
-        }
-
-        std::random_device rd;
-        std::mt19937 gen(rd());
-
-        std::shuffle(std::begin(moves), std::end(moves), gen);
-
-        std::vector<std::pair<Move, int>> evaluatedMoves;
-
-
-        std::transform(moves.begin(), moves.end(),
-                       std::back_inserter(evaluatedMoves),
-                       [&](Move move)
-                       {
-                            int evaluation  = evaluator(board, move, mc);
-                           return std::make_pair(move,
-                                                 evaluation);
-                       });
-
-        std::vector<std::pair<Move, int>> winOrDrawMoves;
-        std::copy_if (evaluatedMoves.begin(), evaluatedMoves.end(), std::back_inserter(winOrDrawMoves), [](auto& emove){return emove.second >= 0;} );
-
-
-        std::sort(winOrDrawMoves.begin(), winOrDrawMoves.end(),
-                  [](auto &emove1, auto &emove2)
-                  {
-                      return emove1.second < emove2.second;
-                  });
-
-        //for (auto move : winOrDrawMoves) {
-        //    std::cout << static_cast<int>(move.first.player) << ": (" << move.first.coords.first << "," <<  move.first.coords.second << ")=" << move.second << std::endl;
-        //}
-
-
-        if (!winOrDrawMoves.empty()) {
-            return winOrDrawMoves[0].first;
-        } else {
-            return moves[0];
-        }
-    };
-    return mc(b);
+        board.makeMove(board.getNextPlayer() == Player::PlayerOne ? strategy1(board) : strategy2(board));
+    }
+    return std::make_pair(board.getOutcome(), board.getTurn());
 };
+
+auto evaluator = [simulate](Board const &board, Move &move, std::function<Move(const Board&)> selfStrategy)
+{
+    for (int i = 0; i < 100; i++)
+    {
+        Board tmpBoard = board;
+        tmpBoard.makeMove(move);
+        Player adversary = tmpBoard.getNextPlayer();
+        std::pair<Outcome, int> outcome = simulate(tmpBoard, selfStrategy, selfStrategy);
+        if (std::holds_alternative<Won>(outcome.first))
+        {
+            return (std::get<Won>(outcome.first).winner == adversary) ? -1 : outcome.second;
+        } else if (std::holds_alternative<Draw>(outcome.first))
+        {
+            return 10;
+        }
+    }
+    return -1;
+};
+
+std::function<Move(const Board&)> mc;
+
+mc = [evaluator, &mc](const Board& board) {
+    auto moves = board.getAvailableMoves();
+
+    if (moves.size() == 1) {
+        return moves[0];
+    }
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    std::shuffle(std::begin(moves), std::end(moves), gen);
+
+    std::vector<std::pair<Move, int>> evaluatedMoves;
+
+
+    std::transform(moves.begin(), moves.end(),
+                   std::back_inserter(evaluatedMoves),
+                   [&](Move move)
+                   {
+                        int evaluation  = evaluator(board, move, mc);
+                       return std::make_pair(move,
+                                             evaluation);
+                   });
+
+    std::vector<std::pair<Move, int>> winOrDrawMoves;
+    std::copy_if (evaluatedMoves.begin(), evaluatedMoves.end(), std::back_inserter(winOrDrawMoves), [](auto& emove){return emove.second >= 0;} );
+
+
+    std::sort(winOrDrawMoves.begin(), winOrDrawMoves.end(),
+              [](auto &emove1, auto &emove2)
+              {
+                  return emove1.second < emove2.second;
+              });
+
+    if (!winOrDrawMoves.empty()) {
+        return winOrDrawMoves[0].first;
+    } else {
+        return moves[0];
+    }
+};
+return mc(b);
+}
+
 
 Outcome playGame(Board& b, Strategy s1, Strategy s2) {
     while (true) {
@@ -269,7 +264,6 @@ Outcome playGame(Board& b, Strategy s1, Strategy s2) {
         if (!std::holds_alternative<Ongoing>(b.getOutcome())) {
             return b.getOutcome();
         }
-
     }
 }
 
