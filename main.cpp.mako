@@ -10,6 +10,11 @@
 
 constexpr int BOARD_SIZE = 3;
 
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_int_distribution<int> dis(0, (BOARD_SIZE * BOARD_SIZE) - 1);
+
+
 enum class Player { PlayerOne, PlayerTwo };
 
 enum class Blank {};
@@ -49,6 +54,48 @@ struct Tris {
     Coordinates point;
     Direction direction;
     int length;
+
+    class Iterator {
+        Coordinates current;
+        Coordinates direction;
+        int remaining;
+
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = Coordinates;
+        using difference_type = std::ptrdiff_t;
+        using pointer = Coordinates *;
+        using reference = Coordinates &;
+
+        Iterator(Coordinates start, Coordinates dir, int len)
+                : current(start), direction(dir), remaining(len) {}
+
+        Coordinates operator*() const { return current; }
+
+        Iterator &operator++() {
+            current.first += direction.first;
+            current.second += direction.second;
+            --remaining;
+            return *this;
+        }
+
+        bool operator!=(const Iterator &other) const {
+            return remaining != other.remaining;
+        }
+
+        bool operator==(const Iterator &other) const {
+            return remaining == other.remaining;
+        }
+
+        bool isValid() const {
+            return current.first >= 0 && current.first < BOARD_SIZE &&
+                   current.second >= 0 && current.second < BOARD_SIZE;
+        }
+    };
+
+    Iterator begin() const { return Iterator{point, direction, length}; }
+
+    Iterator end() const { return Iterator{point, direction, 0}; }
 };
 
 struct Move {
@@ -75,23 +122,26 @@ class Board {
 
     bool hasTris(Player player) const {
         std::vector<Tris> trises{possibleTrises()};
+        Board const *b = this;
         return std::any_of(
-                trises.begin(), trises.end(), [this, player](auto &tris) {
-                    for (int i = 0; i < tris.length; i++) {
-                        Coordinates current = tris.point + i * tris.direction;
-                        auto cell = board[current.first + current.second * BOARD_SIZE];
-                        if (std::holds_alternative<Blank>(cell) ||
-                            std::get<Player>(cell) != player) {
-                            return false;
-                        }
-                    }
-                    return true;
+                trises.begin(), trises.end(), [player, b](const Tris &tris) {
+                    return std::all_of(tris.begin(), tris.end(),
+                                       [player, b](const Coordinates &coord) {
+                                           CellState cell = b->getCell(coord);
+                                           return std::holds_alternative<Player>(cell) &&
+                                                  std::get<Player>(cell) == player;
+                                       });
                 });
     }
 
 public:
     Board() { next = Player::PlayerOne; }
     Player getNextPlayer() const { return next; };
+
+    CellState getCell(Coordinates c) const {
+        return board[c.first + c.second * BOARD_SIZE];
+    }
+
 
     void makeMove(Move const &move) {
         const int index = move.coords.first + move.coords.second * BOARD_SIZE;
@@ -199,12 +249,6 @@ int main() {
     std::cout << b << std::endl;
 
     std::cout << b.getOutcome();
-
-    /*try {
-      b.makeMove(m);
-    } catch (std::runtime_error const &e) {
-      std::cout << e.what() << std::endl;
-    }*/
 
     return 0;
 }

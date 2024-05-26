@@ -10,6 +10,10 @@
 
 constexpr int BOARD_SIZE = 3;
 
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_int_distribution<int> dis(0, (BOARD_SIZE * BOARD_SIZE) - 1);
+
 enum class Player { PlayerOne, PlayerTwo };
 
 enum class Blank {};
@@ -49,6 +53,48 @@ struct Tris {
     Coordinates point;
     Direction direction;
     int length;
+
+    class Iterator {
+        Coordinates current;
+        Coordinates direction;
+        int remaining;
+
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = Coordinates;
+        using difference_type = std::ptrdiff_t;
+        using pointer = Coordinates *;
+        using reference = Coordinates &;
+
+        Iterator(Coordinates start, Coordinates dir, int len)
+                : current(start), direction(dir), remaining(len) {}
+
+        Coordinates operator*() const { return current; }
+
+        Iterator &operator++() {
+            current.first += direction.first;
+            current.second += direction.second;
+            --remaining;
+            return *this;
+        }
+
+        bool operator!=(const Iterator &other) const {
+            return remaining != other.remaining;
+        }
+
+        bool operator==(const Iterator &other) const {
+            return remaining == other.remaining;
+        }
+
+        bool isValid() const {
+            return current.first >= 0 && current.first < BOARD_SIZE &&
+                   current.second >= 0 && current.second < BOARD_SIZE;
+        }
+    };
+
+    Iterator begin() const { return Iterator{point, direction, length}; }
+
+    Iterator end() const { return Iterator{point, direction, 0}; }
 };
 
 struct Move {
@@ -75,17 +121,15 @@ class Board {
 
     bool hasTris(Player player) const {
         std::vector<Tris> trises{possibleTrises()};
+        Board const *b = this;
         return std::any_of(
-                trises.begin(), trises.end(), [this, player](auto &tris) {
-                    for (int i = 0; i < tris.length; i++) {
-                        Coordinates current = tris.point + i * tris.direction;
-                        auto cell = board[current.first + current.second * BOARD_SIZE];
-                        if (std::holds_alternative<Blank>(cell) ||
-                            std::get<Player>(cell) != player) {
-                            return false;
-                        }
-                    }
-                    return true;
+                trises.begin(), trises.end(), [player, b](const Tris &tris) {
+                    return std::all_of(tris.begin(), tris.end(),
+                                       [player, b](const Coordinates &coord) {
+                                           CellState cell = b->getCell(coord);
+                                           return std::holds_alternative<Player>(cell) &&
+                                                  std::get<Player>(cell) == player;
+                                       });
                 });
     }
 
@@ -93,10 +137,15 @@ public:
     Board() { next = Player::PlayerOne; }
     Player getNextPlayer() const { return next; };
 
+    CellState getCell(Coordinates c) const {
+        return board[c.first + c.second * BOARD_SIZE];
+    }
+
+
     void makeMove(Move const &move) {
         const int index = move.coords.first + move.coords.second * BOARD_SIZE;
-        turn++;
         if (next == move.player && std::holds_alternative<Blank>(board[index])) {
+            turn++;
             board[index] = move.player;
             next = next == Player::PlayerOne ? Player::PlayerTwo : Player::PlayerOne;
         } else {
@@ -163,10 +212,6 @@ std::ostream &operator<<(std::ostream &os, const Board &board) {
 using Strategy = Move (*)(Board const&);
 
 Move strategy1(const Board &b) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dis(0, (BOARD_SIZE * BOARD_SIZE) - 1);
-
     auto moves = b.getAvailableMoves();
     return moves[dis(gen) % moves.size()];
 };
@@ -223,7 +268,7 @@ Move strategy2(const Board &b) {
                        std::back_inserter(evaluatedMoves),
                        [&](Move move)
                        {
-                            int evaluation  = evaluator(board, move, mc);
+                           int evaluation  = evaluator(board, move, mc);
                            return std::make_pair(move,
                                                  evaluation);
                        });
@@ -237,11 +282,6 @@ Move strategy2(const Board &b) {
                   {
                       return emove1.second < emove2.second;
                   });
-
-        //for (auto move : winOrDrawMoves) {
-        //    std::cout << static_cast<int>(move.first.player) << ": (" << move.first.coords.first << "," <<  move.first.coords.second << ")=" << move.second << std::endl;
-        //}
-
 
         if (!winOrDrawMoves.empty()) {
             return winOrDrawMoves[0].first;
@@ -281,12 +321,6 @@ int main() {
     std::cout << b << std::endl;
 
     std::cout << b.getOutcome();
-
-    /*try {
-      b.makeMove(m);
-    } catch (std::runtime_error const &e) {
-      std::cout << e.what() << std::endl;
-    }*/
 
     return 0;
 }
