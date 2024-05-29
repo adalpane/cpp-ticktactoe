@@ -1,6 +1,101 @@
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dis(0, (BOARD_SIZE * BOARD_SIZE) - 1);
+    Move nextMove;
+    auto [brd,nxt] = b.getState(b.getNextPlayer());
+    nextMove.player = nxt;
 
-    auto moves = b.getAvailableMoves();
-    return moves[dis(gen) % moves.size()];
+    auto posTris = [&](){
+        std::vector<Tris> posTris;
+        int len = 3;
+
+        if (std::count_if(brd.begin(), brd.end(), [nxt](auto &cell) {
+                 return (std::holds_alternative<Player>(cell) && (std::get<Player>(cell) == nxt));
+               }) == 1)
+        {
+            if (std::holds_alternative<Player>(brd[4]) && (std::get<Player>(brd[4]) == nxt))
+            {
+                if (((std::holds_alternative<Player>(brd[0]) && (std::get<Player>(brd[0]) != nxt)) && (std::holds_alternative<Player>(brd[8]) && (std::get<Player>(brd[8]) != nxt))) ||
+                    ((std::holds_alternative<Player>(brd[2]) && (std::get<Player>(brd[2]) != nxt)) && (std::holds_alternative<Player>(brd[6]) && (std::get<Player>(brd[6]) != nxt))))
+                {
+                    posTris.push_back({{1, 0}, {0, 1}, len});
+                    return posTris;
+                }
+            }
+        }
+
+        for (int i = 0; i < BOARD_SIZE; i++)
+        {
+            posTris.push_back({ { i, 0 }, { 0, 1 }, len});
+            posTris.push_back({ { 0, i }, { 1, 0 }, len});
+        }
+        posTris.push_back({{2, 0}, {-1, 1}, len});
+        posTris.push_back({{0, 0}, {1, 1}, len});
+
+        return posTris;
+    };
+
+    if (std::holds_alternative<Blank>(brd[4]))
+    {
+        nextMove.coords = Coordinates{1,1};
+    }
+    else
+    {
+        std::vector<Tris> trises{posTris()};
+        Coordinates freePos{-1,-1}, tmpPos{-1,-1}, blkPos{-1,-1};
+        
+        for(auto &tris : trises)
+        {
+            int cntMine{}, cntOp{}, cntBlank{};
+            for (int i = 0; i < tris.length; i++)
+            {
+                Coordinates current = tris.point + i * tris.direction;
+                auto cell = brd[current.first + current.second * BOARD_SIZE];
+                if (std::holds_alternative<Player>(cell))
+                {
+                    if (std::get<Player>(cell) == nxt)
+                    {
+                        cntMine++;
+                    }
+                    else
+                    {
+                        cntOp++;
+                    }
+                }
+                else if(std::holds_alternative<Blank>(cell))
+                {
+                    cntBlank++;
+                    freePos = current;
+                }
+            }
+
+            if (cntBlank == 1)
+            {
+                if (cntMine == 2)
+                {
+                    nextMove.coords = freePos;
+                    return nextMove;
+                }
+                else if (cntOp == 2)
+                {
+                    blkPos = freePos;
+                }
+            }
+            else if (cntMine == 1 && cntBlank == 2)
+            {
+                tmpPos = freePos;
+            }
+        }
+
+        if (blkPos != Coordinates{-1,-1})
+        {
+            nextMove.coords = blkPos;
+        }
+        else if (tmpPos != Coordinates{-1,-1})
+        {
+            nextMove.coords = tmpPos;
+        }
+        else
+        {
+            nextMove.coords = freePos;
+        }
+    }
+
+    return nextMove;

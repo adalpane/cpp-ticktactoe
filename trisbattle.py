@@ -16,15 +16,15 @@ def render_battle(s1_path, s2_path, out_path="battle.cpp"):
     open(out_path, "w").write(battle_code)
     gcc(out_path, "-o", "battle")
 
-
-def fight_and_count(s1, s2, n):
-    #print(f"{s1} vs {s2}")
-    render_battle(s1, s2)
+def run_battle(s1, s2, i):
     battle = sh.Command("./battle")
+    print(f"{s1} vs {s2} #{i+1}")
     battle_run = battle()
-    #print(s1, s2)
-    #print(battle_run)
-    return Counter([battle().split("\n")[-1] for _ in range(n)])
+    print(battle_run)
+    return battle_run
+def fight_and_count(s1, s2, n):
+    render_battle(s1, s2)
+    return Counter([run_battle(s1, s2, i).split("\n")[-1] for i in range(n)])
 
 def estrai_nome_file(percorso):
     nome_file = re.search(r'/([^/]+)\.txt$', percorso).group(1)
@@ -42,13 +42,13 @@ def tournament(n=10):
     for p in permutations(strategies, 2):
         snames = [estrai_nome_file(s) for s in p] + ["draw"]
         results = elabora_counter(fight_and_count(*p, n))
-        print(list(zip(snames, results)))
+        print("\nRisultati sfida: ", list(zip(snames, results)))
         for name, count in zip(snames, results):
             if name in wins_map:
                 wins_map[name] += count
             else:
                 wins_map[name] = count
-    print(wins_map)
+    print("\n\nRisultati finali: ", wins_map)
 
 
 

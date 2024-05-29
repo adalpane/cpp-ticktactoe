@@ -10,11 +10,6 @@
 
 constexpr int BOARD_SIZE = 3;
 
-std::random_device rd;
-std::mt19937 gen(rd());
-std::uniform_int_distribution<int> dis(0, (BOARD_SIZE * BOARD_SIZE) - 1);
-
-
 enum class Player { PlayerOne, PlayerTwo };
 
 enum class Blank {};

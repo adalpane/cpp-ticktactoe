@@ -1,4 +1,7 @@
 // https://replit.com/@adrianodalpane/C20
+
+// "https://tinyurl.com/tris-intermedio"
+
 #include <algorithm>
 #include <array>
 #include <iostream>
@@ -9,10 +12,6 @@
 #include <functional>
 
 constexpr int BOARD_SIZE = 3;
-
-std::random_device rd;
-std::mt19937 gen(rd());
-std::uniform_int_distribution<int> dis(0, (BOARD_SIZE * BOARD_SIZE) - 1);
 
 enum class Player { PlayerOne, PlayerTwo };
 
@@ -85,11 +84,6 @@ struct Tris {
         bool operator==(const Iterator &other) const {
             return remaining == other.remaining;
         }
-
-        bool isValid() const {
-            return current.first >= 0 && current.first < BOARD_SIZE &&
-                   current.second >= 0 && current.second < BOARD_SIZE;
-        }
     };
 
     Iterator begin() const { return Iterator{point, direction, length}; }
@@ -119,33 +113,29 @@ class Board {
         return trises;
     }
 
+
     bool hasTris(Player player) const {
         std::vector<Tris> trises{possibleTrises()};
-        Board const *b = this;
-        return std::any_of(
-                trises.begin(), trises.end(), [player, b](const Tris &tris) {
-                    return std::all_of(tris.begin(), tris.end(),
-                                       [player, b](const Coordinates &coord) {
-                                           CellState cell = b->getCell(coord);
-                                           return std::holds_alternative<Player>(cell) &&
-                                                  std::get<Player>(cell) == player;
-                                       });
-                });
+
+        auto checkTris = [this, player](const Coordinates & coordinates) {
+            auto cell = board[coordinates.first + BOARD_SIZE * coordinates.second];
+            return std::holds_alternative<Player>(cell) && std::get<Player>(cell) == player;
+        };
+
+        return std::any_of(trises.begin(), trises.end(), [checkTris](auto &tris) {
+          return std::all_of(tris.begin(), tris.end(), checkTris);
+        });
     }
 
 public:
     Board() { next = Player::PlayerOne; }
     Player getNextPlayer() const { return next; };
 
-    CellState getCell(Coordinates c) const {
-        return board[c.first + c.second * BOARD_SIZE];
-    }
-
 
     void makeMove(Move const &move) {
         const int index = move.coords.first + move.coords.second * BOARD_SIZE;
+        turn++;
         if (next == move.player && std::holds_alternative<Blank>(board[index])) {
-            turn++;
             board[index] = move.player;
             next = next == Player::PlayerOne ? Player::PlayerTwo : Player::PlayerOne;
         } else {
@@ -211,12 +201,111 @@ std::ostream &operator<<(std::ostream &os, const Board &board) {
 
 using Strategy = Move (*)(Board const&);
 
-Move strategy1(const Board &b) {
-    auto moves = b.getAvailableMoves();
-    return moves[dis(gen) % moves.size()];
+Move strategy2(const Board &b) {
+    Move nextMove;
+    auto [brd,nxt] = b.getState(b.getNextPlayer());
+    nextMove.player = nxt;
+
+    auto posTris = [&](){
+        std::vector<Tris> posTris;
+        int len = 3;
+
+        if (std::count_if(brd.begin(), brd.end(), [nxt](auto &cell) {
+            return (std::holds_alternative<Player>(cell) && (std::get<Player>(cell) == nxt));
+        }) == 1)
+        {
+            if (std::holds_alternative<Player>(brd[4]) && (std::get<Player>(brd[4]) == nxt))
+            {
+                if (((std::holds_alternative<Player>(brd[0]) && (std::get<Player>(brd[0]) != nxt)) && (std::holds_alternative<Player>(brd[8]) && (std::get<Player>(brd[8]) != nxt))) ||
+                    ((std::holds_alternative<Player>(brd[2]) && (std::get<Player>(brd[2]) != nxt)) && (std::holds_alternative<Player>(brd[6]) && (std::get<Player>(brd[6]) != nxt))))
+                {
+                    posTris.push_back({{1, 0}, {0, 1}, len});
+                    return posTris;
+                }
+            }
+        }
+
+        for (int i = 0; i < BOARD_SIZE; i++)
+        {
+            posTris.push_back({ { i, 0 }, { 0, 1 }, len});
+            posTris.push_back({ { 0, i }, { 1, 0 }, len});
+        }
+        posTris.push_back({{2, 0}, {-1, 1}, len});
+        posTris.push_back({{0, 0}, {1, 1}, len});
+
+        return posTris;
+    };
+
+    if (std::holds_alternative<Blank>(brd[4]))
+    {
+        nextMove.coords = Coordinates{1,1};
+    }
+    else
+    {
+        std::vector<Tris> trises{posTris()};
+        Coordinates freePos{-1,-1}, tmpPos{-1,-1}, blkPos{-1,-1};
+
+        for(auto &tris : trises)
+        {
+            int cntMine{}, cntOp{}, cntBlank{};
+            for (int i = 0; i < tris.length; i++)
+            {
+                Coordinates current = tris.point + i * tris.direction;
+                auto cell = brd[current.first + current.second * BOARD_SIZE];
+                if (std::holds_alternative<Player>(cell))
+                {
+                    if (std::get<Player>(cell) == nxt)
+                    {
+                        cntMine++;
+                    }
+                    else
+                    {
+                        cntOp++;
+                    }
+                }
+                else if(std::holds_alternative<Blank>(cell))
+                {
+                    cntBlank++;
+                    freePos = current;
+                }
+            }
+
+            if (cntBlank == 1)
+            {
+                if (cntMine == 2)
+                {
+                    nextMove.coords = freePos;
+                    return nextMove;
+                }
+                else if (cntOp == 2)
+                {
+                    blkPos = freePos;
+                }
+            }
+            else if (cntMine == 1 && cntBlank == 2)
+            {
+                tmpPos = freePos;
+            }
+        }
+
+        if (blkPos != Coordinates{-1,-1})
+        {
+            nextMove.coords = blkPos;
+        }
+        else if (tmpPos != Coordinates{-1,-1})
+        {
+            nextMove.coords = tmpPos;
+        }
+        else
+        {
+            nextMove.coords = freePos;
+        }
+    }
+
+    return nextMove;
 };
 
-Move strategy2(const Board &b) {
+Move strategy1(const Board &b) {
 
     auto simulate = [](Board &board, std::function<Move(const Board&)> strategy1, std::function<Move(const Board&)> strategy2)
     {
@@ -282,6 +371,11 @@ Move strategy2(const Board &b) {
                   {
                       return emove1.second < emove2.second;
                   });
+
+        //for (auto move : winOrDrawMoves) {
+        //    std::cout << static_cast<int>(move.first.player) << ": (" << move.first.coords.first << "," <<  move.first.coords.second << ")=" << move.second << std::endl;
+        //}
+
 
         if (!winOrDrawMoves.empty()) {
             return winOrDrawMoves[0].first;
